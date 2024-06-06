@@ -10,6 +10,7 @@ use App\Models\AssetModel;
 use App\Models\CustomField;
 use App\Models\SnipeModel;
 use App\Models\User;
+use App\Models\DefaultValuesForCustomFields;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -151,7 +152,7 @@ class AssetModelsController extends Controller
         $model->notes = $request->input('notes');
         $model->requestable = $request->input('requestable', '0');
 
-        $this->removeCustomFieldsDefaultValues($model);
+        DefaultValuesForCustomFields::forPivot($model, Asset::class)->delete();
 
         $model->fieldset_id = $request->input('fieldset_id');
 
@@ -453,7 +454,7 @@ class AssetModelsController extends Controller
     }
 
     /**
-     * Adds default values to a model (as long as they are truthy)
+     * Adds default values to a model (as long as they are truthy) (does this mean I cannot set a default value of 0?)
      *
      * @param  AssetModel $model
      * @param  array      $defaultValues
@@ -487,21 +488,12 @@ class AssetModelsController extends Controller
         }
 
         foreach ($defaultValues as $customFieldId => $defaultValue) {
-            if(is_array($defaultValue)){
-                $model->defaultValues()->attach($customFieldId, ['default_value' => implode(', ', $defaultValue)]);
-            }elseif ($defaultValue) {
-                $model->defaultValues()->attach($customFieldId, ['default_value' => $defaultValue]);
+            if (is_array($defaultValue)) {
+                $defaultValue = implode(', ', $defaultValue);
             }
+            DefaultValuesForCustomFields::updateOrCreate(['custom_field_id' => $customFieldId, 'item_pivot_id' => $model->id], ['default_value' => $defaultValue]);
         }
         return true;
     }
 
-    /**
-     * Removes all default values
-     *
-     */
-    private function removeCustomFieldsDefaultValues(AssetModel|SnipeModel $model): void
-    {
-        $model->defaultValues()->detach();
-    }
 }
